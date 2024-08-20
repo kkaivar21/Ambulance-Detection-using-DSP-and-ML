@@ -1,0 +1,496 @@
+QAM Performance
+M = 16;
+numSymbols = 1e5;
+EbN0_db = 0:2:20;
+EbN0 = EbN0_db - 10*log10(log2(M));
+
+numSNR = length(EbN0_db);
+SER = zeros(1,numSNR);
+
+% Defining all parameters
+gainImabalance = 0.1;
+phaseMismatch = 0.05;
+dcOffsetI = 0.05;
+dcOffsetQ = 0.05;
+
+for i = 1:numSNR
+   dataSymbols = randi([0 M-1], numSymbols, 1);
+   
+   % QAM modulation
+   modulatedSignal = qammod(dataSymbols, M, 'UnitAveragePower', true);
+   
+   % Apply gain imabalance
+   I = real(modulatedSignal);
+   Q = imag(modulatedSignal);
+   recievedSignal = (1 + gainImabalance)*I + 1i*(1 - gainImabalance)*Q;
+   
+   % Apply phase mismatch
+   recievedSignal = recievedSignal .* exp(1i * phaseMismatch);
+   
+   %  Apply DC Offsets
+   recievedSignal = recievedSignal + (dcOffsetI) + (1i * dcOffsetQ) ;
+   
+   %Add AWGN
+   recievedSignal = awgn(recievedSignal, EbN0_db(i), 'measured');
+   
+   % QAM Demodulation
+   demodulatedSignal = qamdemod(recievedSignal, M, 'UnitAveragePower', true);
+   
+   % Calculate SER
+   SER(i) = sum(dataSymbols ~= demodulatedSignal) / numSymbols ;
+  
+end
+
+% Plotting
+figure;
+
+semilogy(EbN0, SER, 'b-o');
+title('SER vs E_b/N_0 for 16-QAM with Receiver Impairments');
+xlabel('Eb/N0 in db');
+ylabel('Symbol Error Rate (SER)')
+grid on;
+
+% Displaying results for each SNR point
+fprintf('SNR(db)   SER\n');
+fprintf('-------   ------');
+
+for j = 1:numSNR
+   fprintf('%8.2f   %e\n', EbN0_db(i), SER(i));
+end
+
+% Plotting constellation diagram for highest SNR point
+scatterplot(recievedSignal);
+title('Received Signal Constellation with Receiver Impairments (SNR = 20 dB)');
+grid on;
+
+
+
+
+
+Exp 6
+Performance of MPSK, MFSK, MPAM etc
+
+EbN0_db = 0:2:24;
+EbN0 = 10.^(EbN0_db/10);
+
+%MPSK
+M_PSK = [2, 4, 8, 16, 32];
+P_SER_PSK = zeros(length(M_PSK), length(EbN0));
+
+for i = 1:length(M_PSK)
+M = M_PSK(i);
+P_SER_PSK(i,:) = 2 * qfunc(sqrt(2*EbN0*sin(pi/M)));
+end
+
+%MPAM
+M_PAM = [2, 4, 8, 16];
+P_SER_PAM = zeros(length(M_PAM), length(EbN0));
+
+for i = 1:length(M_PAM)
+M = M_PAM(i);
+P_SER_PAM(i,:) = 2 *(M-1)/M * qfunc(sqrt(6*log2(M)/(M^2 - 1) * EbN0));
+end
+
+%MQAM
+M_QAM = [4,16,64,256];
+P_SER_QAM = zeros(length(M_QAM), length(EbN0));
+for i = 1:length(M_QAM)
+M = M_QAM(i);
+P_SER_QAM(i,:) = 4 * (1 - 1/sqrt(M)) * qfunc(sqrt(3*log2(M)/(M-1) * EbN0))
+end
+
+%MFSK (coherent)
+M_MFSK = [2, 4, 8, 16, 32]; % M values for MFSK
+P_SER_MFSK_coherent = zeros(length(M_MFSK), length(EbN0));
+for i = 1:length(M_MFSK)
+M = M_MFSK(i);
+P_SER_MFSK_coherent(i, :) = qfunc(sqrt(2*EbN0*log2(M)/(M-1)));
+end
+
+%MFSK (non coherent)
+P_SER_MFSK_noncoherent = zeros(length(M_MFSK), length(EbN0));
+for i = 1:length(M_MFSK)
+M = M_MFSK(i);
+P_SER_MFSK_noncoherent(i, :) = exp(-(EbN0/2)) .* (((1+EbN0).^(M-1) - 1)./(M-1))
+end
+
+subplot(2,3,1)
+for i=1:length(M_PSK)
+semilogy(EbN0_db,P_SER_PSK(i,:),'-o'); hold on;
+end
+title('MPSK');
+xlabel('Eb/N0 in db')
+ylabel('SER');
+grid on;
+
+subplot(2,3,2)
+for i=1:length(M_PAM)
+semilogy(EbN0_db,P_SER_PAM(i,:),'-o'); hold on;
+end
+title('MPAM');
+xlabel('Eb/N0 in db')
+ylabel('SER');
+grid on;
+
+subplot(2,3,3)
+for i=1:length(M_QAM)
+semilogy(EbN0_db,P_SER_QAM(i,:),'-o'); hold on;
+end
+title('MQAM');
+xlabel('Eb/N0 in db')
+ylabel('SER');
+grid on;
+
+subplot(2,3,4)
+for i=1:length(M_MFSK)
+semilogy(EbN0_db,P_SER_MFSK_coherent(i,:),'-o'); hold on;
+end
+title('MFSK coherent');
+xlabel('Eb/N0 in db')
+ylabel('SER');
+grid on;
+
+subplot(2,3,5)
+for i=1:length(M_MFSK)
+semilogy(EbN0_db,P_SER_MFSK_noncoherent(i,:),'-o'); hold on;
+end
+title('MFSK noncoherent');
+xlabel('Eb/N0 in db')
+ylabel('SER');
+grid on;
+
+
+Exp7
+
+DSSS
+
+M = 2;
+numBits = 1e3;
+chipRate = 10;
+snr = 10;
+fs = 1000;
+
+% Generate random bits
+dataBits = randi([0 1], numBits, 1);
+
+% BPSK modulation
+modulatedSignal = dataBits*2 -1;
+
+% Generate PN Sequence
+pnSequence = randi([0 1], numBits*chipRate, 1);
+pnSequence = pnSequence*2 - 1;
+
+% Spread the Signal
+spreadSignal = repelem(modulatedSignal,chipRate).*pnSequence;
+
+% Transmit over AWGN channel
+recievedSignal = awgn(spreadSignal, snr, 'measured');
+
+% Despread the signal
+despreadSignal = recievedSignal .* pnSequence
+despreadBits = sum(reshape(despreadSignal, chipRate, numBits),1)' / chipRate;
+
+% Demodulate Signal
+recievedBits = despreadBits > 0;
+
+% Calculate bit error rate
+BER_DSSS = sum(dataBits ~= recievedBits) / numBits;
+
+% Calculate FFT for plotting spectra
+n = length(spreadSignal);
+frequencies = (-n/2 : n/2 -1) * (fs/n);
+
+% Message Signal Spectrum
+messageSpectrum = fftshift(fft(modulatedSignal,n));
+
+%PN code spectrum
+pnSpectrum = fftshift(fft(pnSequence,n));
+
+%Spread Signal spectrum
+spreadSignalSpectrum = fftshift(fft(spreadSignal,n));
+
+% Received signal spectrum
+receivedSignalSpectrum = fftshift(fft(recievedSignal, n));
+
+% Despread signal spectrum
+despreadSignalSpectrum = fftshift(fft(despreadSignal, n));
+
+% Demodulated signal spectrum (before decision device)
+demodulatedSignalSpectrum = fftshift(fft(despreadBits, n));
+
+% Plotting
+figure;
+subplot(3,2,1);
+plot(frequencies, abs(messageSpectrum));
+title('Message Signal Spectrum');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+grid on;
+
+subplot(3,2,2);
+plot(frequencies, abs(pnSpectrum));
+title('PN Code Spectrum');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+grid on;
+
+subplot(3,2,3);
+plot(frequencies, abs(spreadSignalSpectrum));
+title('Spread Signal Spectrum');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+grid on;
+
+subplot(3,2,4);
+plot(frequencies, abs(receivedSignalSpectrum));
+title('Received Signal Spectrum');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+grid on;
+
+subplot(3,2,5);
+plot(frequencies, abs(despreadSignalSpectrum));
+title('Despread Signal Spectrum');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+grid on;
+
+subplot(3,2,6);
+plot(frequencies, abs(demodulatedSignalSpectrum));
+title('Demodulated Signal Spectrum (Before Decision Device)');
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+grid on;
+
+
+
+
+FHSS
+% Parameters
+numBits = 20; % Number of bits
+numHops = 6; % Number of frequency hops
+hopFrequencies = [1, 2, 3, 4, 5, 6] * 1e3; % Frequencies in Hz
+hopDuration = 1e-3; % Duration of each hop in seconds
+snr = 10; % Signal-to-noise ratio in dB
+fs = 20e3; % Sampling frequency in Hz
+
+% Generate random bits  
+dataBits = randi([0 1], numBits, 1);
+
+% BPSK Modulation (rectangular wave format)
+modulatedData = 2*dataBits - 1; % BPSK mapping (0 -> -1, 1 -> 1)
+bpskSignal = repelem(modulatedData, hopDuration*fs); % Create rectangular wave
+
+% Generate FHSS signal
+t = (0:1/fs:hopDuration-1/fs)';
+fhssSignal = [];
+hopSignal = [];
+for i = 1:numBits
+  hopIdx = mod(i-1, numHops) + 1;
+  freq = hopFrequencies(hopIdx);
+  carrier = cos(2*pi*freq*t);
+  hopSignal = [hopSignal; carrier];
+  fhssSignal = [fhssSignal; bpskSignal((i-1)*length(t)+1:i*length(t)) .* carrier];
+end
+
+% Transmit over AWGN channel
+receivedSignal = awgn(fhssSignal, snr, 'measured');
+
+% Demodulate FHSS signal
+demodulatedSignal = [];
+receivedBits = zeros(numBits, 1);
+for i = 1:numBits
+  hopIdx = mod(i-1, numHops) + 1;
+  freq = hopFrequencies(hopIdx);
+  carrier = cos(2*pi*freq*t);
+  segment = receivedSignal((i-1)*length(t)+1:i*length(t));
+  demodulated = segment .* carrier;
+  demodulatedSignal = [demodulatedSignal; demodulated];
+  receivedBits(i) = sum(demodulated) > 0;
+end
+
+% Plotting
+figure;
+
+% Original 20-bit sequence
+subplot(3, 2, 1);
+stem(dataBits, 'filled');
+title('Original 20-bit Sequence');
+xlabel('Bit Index');
+ylabel('Bit Value');
+grid on;
+
+% BPSK modulated signal (rectangular wave)
+subplot(3,2,2);
+plot(bpskSignal);
+title('BPSK Modulated Signal (Rectangular Wave)');
+xlabel('Sample Index');
+ylabel('Amplitude');
+grid on;
+
+% Spread signal with 6 frequencies
+subplot(3, 2, 3);
+plot(hopSignal);
+title('Spread Signal with 6 Frequencies');
+xlabel('Sample Index');
+ylabel('Amplitude');
+grid on;
+
+% Frequency hopped spread spectrum signal at transmitter
+subplot(3, 2, 4);
+plot(fhssSignal);
+title('Frequency Hopped Spread Spectrum Signal');
+xlabel('Sample Index');
+ylabel('Amplitude');
+grid on;
+
+% Demodulated BPSK signal from widespread signal
+subplot(3, 2, 5);
+plot(demodulatedSignal);
+title('Demodulated BPSK Signal from Spread Signal');
+xlabel('Sample Index');
+ylabel('Amplitude');
+grid on;
+
+% Original transmitted bits sequence at the receiver
+subplot(3, 2, 6);
+stem(receivedBits, 'filled');
+title('Original Transmitted Bits Sequence at Receiver');
+xlabel('Bit Index');
+ylabel('Bit Value');
+grid on;
+
+% Calculate and display BER
+BER_FHSS = sum(dataBits ~= receivedBits) / numBits;
+fprintf('FHSS BER: %e\n', BER_FHSS);
+
+
+
+Exp8
+
+OFDM for MPSK
+
+N = 64; % Number of subcarriers
+CP_len = 16; % Length of the cyclic prefix
+EbN0_db = 0:2:30; % Range of SNR values in dB
+numSymbols = 1000; % Number of OFDM symbols
+
+M_values = [4,8,16,32,64]; % Different modulation orders
+SER = zeros(length(EbN0_db), length(M_values)); % Preallocate SER matrix
+
+for mIdx = 1:length(M_values)
+    M = M_values(mIdx); % Current modulation order
+    
+    for idx = 1:length(EbN0_db)
+        % Generate random data symbols
+        data = randi([0 M-1], N, numSymbols);
+        
+        % Modulate using M-PSK
+        modData = pskmod(data, M, pi/M);
+        
+        % Convert to time domain using IFFT
+        ifftData = ifft(modData, N);
+        
+        % Add cyclic prefix
+        cpData = [ifftData(end-CP_len+1:end, :); ifftData];
+        
+        % Reshape into a 1D array for transmission
+        txSignal = cpData(:);
+        
+        % Convert Eb/N0 to SNR and add AWGN
+        snr = EbN0_db(idx) + 10*log10(log2(M));
+        rxSignal = awgn(txSignal, snr, 'measured');
+        
+        % Reshape back to matrix form
+        rxSignal = reshape(rxSignal, N+CP_len, numSymbols);
+        
+        % Remove cyclic prefix
+        rxSignalNoCp = rxSignal(CP_len+1:end, :);
+        
+        % Convert back to frequency domain using FFT
+        fftData = fft(rxSignalNoCp, N);
+        
+        % Demodulate the received signal
+        demodData = pskdemod(fftData, M, pi/M);
+        
+        % Calculate the number of symbol errors
+        numSymbolErrors = sum(sum(data ~= demodData));
+        
+        % Compute Symbol Error Rate (SER)
+        SER(idx, mIdx) = numSymbolErrors / (N * numSymbols);
+    end
+end
+
+% Plotting SER vs SNR
+figure;
+semilogy(EbN0_db, SER, 'o-');
+title('MPSK-CP-OFDM SER vs SNR for Multiple Modulation Orders');
+xlabel('SNR (dB)');
+ylabel('Symbol Error Rate (SER)');
+grid on;
+
+
+
+
+OFDM for QAM
+
+
+N = 64; % Number of subcarriers
+CP_len = 16; % Length of the cyclic prefix
+EbN0_db = 0:2:30; % Range of SNR values in dB
+numSymbols = 1000; % Number of OFDM symbols
+
+M_values = [4,16,64,256]; % Different modulation orders
+SER = zeros(length(EbN0_db), length(M_values)); % Preallocate SER matrix
+
+for mIdx = 1:length(M_values)
+    M = M_values(mIdx); % Current modulation order
+    
+    for idx = 1:length(EbN0_db)
+        % Generate random data symbols
+        data = randi([0 M-1], N, numSymbols);
+        
+        % Modulate using M-QAM
+        modData = qammod(data, M);
+        
+        % Convert to time domain using IFFT
+        ifftData = ifft(modData, N);
+        
+        % Add cyclic prefix
+        cpData = [ifftData(end-CP_len+1:end, :); ifftData];
+        
+        % Reshape into a 1D array for transmission
+        txSignal = cpData(:);
+        
+        % Convert Eb/N0 to SNR and add AWGN
+        snr = EbN0_db(idx) + 10*log10(log2(M));
+        rxSignal = awgn(txSignal, snr, 'measured');
+        
+        % Reshape back to matrix form
+        rxSignal = reshape(rxSignal, N+CP_len, numSymbols);
+        
+        % Remove cyclic prefix
+        rxSignalNoCp = rxSignal(CP_len+1:end, :);
+        
+        % Convert back to frequency domain using FFT
+        fftData = fft(rxSignalNoCp, N);
+        
+        % Demodulate the received signal
+        demodData = qamdemod(fftData, M);
+        
+        % Calculate the number of symbol errors
+        numSymbolErrors = sum(sum(data ~= demodData));
+        
+        % Compute Symbol Error Rate (SER)
+        SER(idx, mIdx) = numSymbolErrors / (N * numSymbols);
+    end
+end
+
+% Plotting SER vs SNR
+figure;
+semilogy(EbN0_db, SER, 'o-');
+title('MQAM-CP-OFDM SER vs SNR for Multiple Modulation Orders');
+xlabel('SNR (dB)');
+ylabel('Symbol Error Rate (SER)');
+grid on;
+
